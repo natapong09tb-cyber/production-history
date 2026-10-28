@@ -20,3 +20,17 @@ Public static snapshot, using one canonical Server Analysis dataset for all prod
 Only approved production-report fields and company logo are included. No raw databases, controller files, programs, credentials, private network addresses or personnel data.
 
 For Android use the verified HTTPS report: https://natapong09tb-cyber.github.io/production-history/ . File-manager content:// access may fail to load sibling assets; offline Android operation is not verified.
+
+- Additional explicit average-only exclusion: 2026-10-12 DAY_STANDARD R3 CT:49173-20435 segment 1 (9 PCS, 16:39–18:54). Both seconds and PCS are removed from rate inputs, never from production totals.
+
+- Additional explicit average-only exclusion: 2026-10-06 NIGHT_STANDARD R6 JK:49435-20100 segment 1 (43 PCS, 23:24–02:40). Production totals remain unchanged.
+
+- Additional explicit average-only exclusion: 2026-09-27 DAY_EXTENDED R8 SC:49335-13320 segment 1 (14 PCS, 10:17–16:25). Production totals remain unchanged.
+
+- Additional explicit average-only exclusion: 2026-09-19 DAY_STANDARD R9 CT:49335-20400 segment 1 (1,648 PCS, 08:28–19:58). Production totals remain unchanged.
+
+- Additional explicit average-only exclusion: 2026-09-16 NIGHT_STANDARD R7 JK:49178-20050 segment 1 (2,283 PCS, 20:11–06:50). Repeated requests for an already excluded run do not duplicate an exclusion. Production totals remain unchanged.
+
+- Additional explicit average-only exclusions: 2026-09-15 DAY_STANDARD R3 segments 1/2/3: CT:49331-20304 (3 PCS), CT:900-20000 (2 PCS), CT:49331-20304 (2 PCS). Original missing clock values and all 7 PCS remain in history.
+
+- Additional explicit average-only exclusion: 2026-09-10 NIGHT_STANDARD R9 CT:49335-20400 segment 1 (77 PCS, 20:14–01:12). Production totals remain unchanged.
