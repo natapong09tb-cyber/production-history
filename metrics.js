@@ -33,5 +33,19 @@ function analyzeParts(records){
  }
  return [...groups.values()].sort((a,b)=>String(a.part).localeCompare(String(b.part))).map(g=>({...g,day:metrics(g.rows.filter(r=>r.shift==='DAY')),night:metrics(g.rows.filter(r=>r.shift==='NIGHT')),combined:metrics(g.rows)}));
 }
-const api={validNumber,reliable,metrics,filterRecords,partIdentity,analyzeParts};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ProductionMetrics=api;
+function historyMetrics(rows){
+ const total=metrics(rows);const eligible=rows.filter(reliable);const paired=metrics(eligible);
+ return {...total,secPerPc:paired.secPerPc,pcsPerHour:paired.pcsPerHour,eligiblePCS:paired.pcs===null?0:paired.pcs,eligibleRecords:eligible.length,totalRecords:rows.length};
+}
+function analysisMetrics(rows){
+ // Server Analysis runs are a separate grain. Never inherit shift-report quality.
+ return metrics(rows.map(r=>({...r,quality:'FULL_REPORT',ratesReliable:validNumber(r.pcs)&&r.pcs>0&&validNumber(r.total_sec)&&r.total_sec>0})));
+}
+function filterAnalysisRecords(records,f){return records.filter(r=>(!f.from||r.date>=f.from)&&(!f.to||r.date<=f.to)&&(!f.shift||r.shift===f.shift)&&(!f.robot||String(r.robot)===f.robot)&&(!f.part||partIdentity(r)===f.part)&&(!f.profile||r.profile===f.profile));}
+function analyzeServerParts(records){
+ const groups=new Map();
+ for(const r of records){const id=partIdentity(r);if(!id)continue;if(!groups.has(id))groups.set(id,{id,part:r.part,profile:r.profile||'',rows:[]});groups.get(id).rows.push(r);}
+ return [...groups.values()].sort((a,b)=>String(a.part).localeCompare(String(b.part))).map(g=>({...g,day:analysisMetrics(g.rows.filter(r=>r.shift==='DAY')),night:analysisMetrics(g.rows.filter(r=>r.shift==='NIGHT')),combined:analysisMetrics(g.rows)}));
+}
+const api={historyMetrics,analysisMetrics,filterAnalysisRecords,analyzeServerParts,validNumber,reliable,metrics,filterRecords,partIdentity,analyzeParts};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ProductionMetrics=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
