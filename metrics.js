@@ -42,10 +42,47 @@ function analysisMetrics(rows){
  return metrics(rows.map(r=>({...r,quality:'FULL_REPORT',ratesReliable:validNumber(r.pcs)&&r.pcs>0&&validNumber(r.total_sec)&&r.total_sec>0})));
 }
 function filterAnalysisRecords(records,f){return records.filter(r=>(!f.from||r.date>=f.from)&&(!f.to||r.date<=f.to)&&(!f.shift||r.shift===f.shift)&&(!f.robot||String(r.robot)===f.robot)&&(!f.part||partIdentity(r)===f.part)&&(!f.profile||r.profile===f.profile));}
+// Match Python round(value, 2) on the underlying IEEE-754 value, including ties-to-even.
+function serverRound2(value){
+ if(typeof value!=='number'||!Number.isFinite(value))return null;
+ const sign=value<0?-1:1;value=Math.abs(value);if(value===0)return 0;
+ const view=new DataView(new ArrayBuffer(8));view.setFloat64(0,value,false);const bits=view.getBigUint64(0,false);const exponent=Number((bits>>52n)&2047n);let numerator=(bits&((1n<<52n)-1n))+(exponent?1n<<52n:0n);const power=(exponent?exponent-1023:1-1023)-52;numerator*=100n;
+ let rounded;if(power>=0)rounded=numerator<<BigInt(power);else{const denominator=1n<<BigInt(-power);rounded=numerator/denominator;const remainder=numerator%denominator;if(remainder*2n>denominator||(remainder*2n===denominator&&rounded%2n===1n))rounded++;}
+ return sign*Number(rounded)/100;
+}
+function weightedMedian(rows){
+ const points=rows.filter(r=>validNumber(r.pcs)&&r.pcs>0&&validNumber(r.total_sec)&&r.total_sec>0).map(r=>({value:serverRound2(r.total_sec/r.pcs),weight:Math.trunc(r.pcs)})).filter(p=>p.value>0&&p.weight>0).sort((a,b)=>a.value-b.value);
+ if(!points.length)return null;const half=points.reduce((s,p)=>s+p.weight,0)/2;let cumulative=0;for(const p of points){cumulative+=p.weight;if(cumulative>=half)return p.value;}return points[points.length-1].value;
+}
+function serverWeightedMedianPoints(points){
+ const values=points.map(p=>({value:serverRound2(p.value),weight:Math.max(0,Math.trunc(p.weight||0))})).filter(p=>p.value!==null&&p.value>0&&p.weight>0).sort((a,b)=>a.value-b.value);
+ if(!values.length)return null;const half=values.reduce((s,p)=>s+p.weight,0)/2;let sum=0;for(const p of values){sum+=p.weight;if(sum>=half)return p.value;}return values[values.length-1].value;
+}
+function normalAnalysisRows(rows){
+ const valid=rows.filter(r=>validNumber(r.pcs)&&r.pcs>0&&validNumber(r.total_sec)&&r.total_sec>0);
+ if(valid.length<5||valid.reduce((s,r)=>s+r.pcs,0)<500)return valid;
+ const points=valid.map(r=>({value:serverRound2(r.total_sec/r.pcs),weight:r.pcs}));const median=serverWeightedMedianPoints(points);if(median===null)return valid;
+ const mad=serverWeightedMedianPoints(points.map(p=>({value:Math.abs(p.value-median),weight:p.weight})));
+ const threshold=Math.max(6,median*.18,(mad||0)*1.4826*4);
+ const kept=valid.filter((r,i)=>Math.abs(points[i].value-median)<=threshold);return kept.length?kept:valid;
+}
+function adjustAnalysisRecords(rows){
+ const groups=new Map();for(const r of rows){const id=partIdentity(r);if(!groups.has(id))groups.set(id,[]);groups.get(id).push(r);}
+ const retained=new Set();for(const group of groups.values())for(const r of normalAnalysisRows(group))retained.add(r);
+ return rows.map(r=>({...r,rateIncluded:retained.has(r)}));
+}
+function adjustedMetrics(rows){
+ const totals=analysisMetrics(rows),included=rows.filter(r=>r.rateIncluded===true),rates=analysisMetrics(included);
+ return {...totals,secPerPc:rates.secPerPc,pcsPerHour:rates.pcsPerHour,includedPCS:rates.pcs||0,includedRecords:included.length,excludedPCS:totals.pcs===null?0:totals.pcs-(rates.pcs||0),excludedRecords:rows.length-included.length};
+}
+function analyzeAdjustedParts(rows){
+ const groups=new Map();for(const r of rows){const id=partIdentity(r);if(!id)continue;if(!groups.has(id))groups.set(id,{id,part:r.part,profile:r.profile||'',rows:[]});groups.get(id).rows.push(r);}
+ return [...groups.values()].sort((a,b)=>String(a.part).localeCompare(String(b.part))).map(g=>({...g,day:adjustedMetrics(g.rows.filter(r=>r.shift==='DAY')),night:adjustedMetrics(g.rows.filter(r=>r.shift==='NIGHT')),combined:adjustedMetrics(g.rows)}));
+}
 function analyzeServerParts(records){
  const groups=new Map();
  for(const r of records){const id=partIdentity(r);if(!id)continue;if(!groups.has(id))groups.set(id,{id,part:r.part,profile:r.profile||'',rows:[]});groups.get(id).rows.push(r);}
- return [...groups.values()].sort((a,b)=>String(a.part).localeCompare(String(b.part))).map(g=>({...g,day:analysisMetrics(g.rows.filter(r=>r.shift==='DAY')),night:analysisMetrics(g.rows.filter(r=>r.shift==='NIGHT')),combined:analysisMetrics(g.rows)}));
+ return [...groups.values()].sort((a,b)=>String(a.part).localeCompare(String(b.part))).map(g=>({...g,medianSecPerPc:weightedMedian(g.rows),day:analysisMetrics(g.rows.filter(r=>r.shift==='DAY')),night:analysisMetrics(g.rows.filter(r=>r.shift==='NIGHT')),combined:analysisMetrics(g.rows)}));
 }
-const api={historyMetrics,analysisMetrics,filterAnalysisRecords,analyzeServerParts,validNumber,reliable,metrics,filterRecords,partIdentity,analyzeParts};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ProductionMetrics=api;
+const api={normalAnalysisRows,adjustAnalysisRecords,adjustedMetrics,analyzeAdjustedParts,serverWeightedMedianPoints,serverRound2,weightedMedian,historyMetrics,analysisMetrics,filterAnalysisRecords,analyzeServerParts,validNumber,reliable,metrics,filterRecords,partIdentity,analyzeParts};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ProductionMetrics=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
