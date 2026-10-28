@@ -34,3 +34,5 @@ For Android use the verified HTTPS report: https://natapong09tb-cyber.github.io/
 - Additional explicit average-only exclusions: 2026-09-15 DAY_STANDARD R3 segments 1/2/3: CT:49331-20304 (3 PCS), CT:900-20000 (2 PCS), CT:49331-20304 (2 PCS). Original missing clock values and all 7 PCS remain in history.
 
 - Additional explicit average-only exclusion: 2026-09-10 NIGHT_STANDARD R9 CT:49335-20400 segment 1 (77 PCS, 20:14–01:12). Production totals remain unchanged.
+
+- Additional explicit average-only exclusions: 2026-09-20 DAY_STANDARD R7 CT:49331-20304 segment 1 (1,453 PCS, 08:11–19:55) and R9 CT:49335-20400 segment 1 (1,332 PCS, 08:10–19:29). Production totals remain unchanged.
