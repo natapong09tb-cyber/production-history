@@ -66,10 +66,11 @@ function normalAnalysisRows(rows){
  const threshold=Math.max(6,median*.18,(mad||0)*1.4826*4);
  const kept=valid.filter((r,i)=>Math.abs(points[i].value-median)<=threshold);return kept.length?valid.filter(r=>(partIdentity(r)!=='SC:ST01S400001'&&r.pcs>30)||kept.includes(r)):valid;
 }
+function manuallyExcluded(r){return r.date==='2026-09-16'&&r.shift==='NIGHT'&&String(r.robot)==='9'&&r.brand==='CROBOTP'&&r.part_id==='CT:49335-20400'&&r.view_mode==='NIGHT_STANDARD'&&r.segment===1&&r.pcs===2126&&r.first==='20:12'&&r.last==='07:59';}
 function adjustAnalysisRecords(rows){
  const groups=new Map();for(const r of rows){const id=partIdentity(r);if(!groups.has(id))groups.set(id,[]);groups.get(id).push(r);}
  const retained=new Set();for(const group of groups.values())for(const r of normalAnalysisRows(group))retained.add(r);
- return rows.map(r=>({...r,rateIncluded:retained.has(r)}));
+ return rows.map(r=>({...r,rateIncluded:retained.has(r)&&!manuallyExcluded(r),manualRateExclusion:manuallyExcluded(r)}));
 }
 function adjustedMetrics(rows){
  const totals=analysisMetrics(rows),included=rows.filter(r=>r.rateIncluded===true),rates=analysisMetrics(included);
@@ -84,5 +85,5 @@ function analyzeServerParts(records){
  for(const r of records){const id=partIdentity(r);if(!id)continue;if(!groups.has(id))groups.set(id,{id,part:r.part,profile:r.profile||'',rows:[]});groups.get(id).rows.push(r);}
  return [...groups.values()].sort((a,b)=>String(a.part).localeCompare(String(b.part))).map(g=>({...g,medianSecPerPc:weightedMedian(g.rows),day:analysisMetrics(g.rows.filter(r=>r.shift==='DAY')),night:analysisMetrics(g.rows.filter(r=>r.shift==='NIGHT')),combined:analysisMetrics(g.rows)}));
 }
-const api={normalAnalysisRows,adjustAnalysisRecords,adjustedMetrics,analyzeAdjustedParts,serverWeightedMedianPoints,serverRound2,weightedMedian,historyMetrics,analysisMetrics,filterAnalysisRecords,analyzeServerParts,validNumber,reliable,metrics,filterRecords,partIdentity,analyzeParts};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ProductionMetrics=api;
+const api={manuallyExcluded,normalAnalysisRows,adjustAnalysisRecords,adjustedMetrics,analyzeAdjustedParts,serverWeightedMedianPoints,serverRound2,weightedMedian,historyMetrics,analysisMetrics,filterAnalysisRecords,analyzeServerParts,validNumber,reliable,metrics,filterRecords,partIdentity,analyzeParts};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ProductionMetrics=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
