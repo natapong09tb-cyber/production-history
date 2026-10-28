@@ -64,7 +64,7 @@ function normalAnalysisRows(rows){
  const points=valid.map(r=>({value:serverRound2(r.total_sec/r.pcs),weight:r.pcs}));const median=serverWeightedMedianPoints(points);if(median===null)return valid;
  const mad=serverWeightedMedianPoints(points.map(p=>({value:Math.abs(p.value-median),weight:p.weight})));
  const threshold=Math.max(6,median*.18,(mad||0)*1.4826*4);
- const kept=valid.filter((r,i)=>Math.abs(points[i].value-median)<=threshold);return kept.length?kept:valid;
+ const kept=valid.filter((r,i)=>Math.abs(points[i].value-median)<=threshold);return kept.length?valid.filter(r=>(partIdentity(r)!=='SC:ST01S400001'&&r.pcs>30)||kept.includes(r)):valid;
 }
 function adjustAnalysisRecords(rows){
  const groups=new Map();for(const r of rows){const id=partIdentity(r);if(!groups.has(id))groups.set(id,[]);groups.get(id).push(r);}
